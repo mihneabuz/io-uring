@@ -193,6 +193,65 @@ impl<'a> Submitter<'a> {
         .map(drop)
     }
 
+    /// Registers nr empty buffers to the ring. These buffers must be updated before use,
+    /// using [register_buffers_update](Submitter::register_buffers_update)
+    pub fn register_buffers_sparse(&self, nr: u32) -> io::Result<()> {
+        let rr = sys::io_uring_rsrc_register {
+            nr,
+            flags: sys::IORING_RSRC_REGISTER_SPARSE,
+            resv2: 0,
+            data: 0,
+            tags: 0,
+        };
+        execute(
+            self.fd.as_raw_fd(),
+            sys::IORING_REGISTER_BUFFERS2,
+            cast_ptr::<sys::io_uring_rsrc_register>(&rr).cast(),
+            mem::size_of::<sys::io_uring_rsrc_register>() as _,
+        )
+        .map(drop)
+    }
+
+    /// Updates registered buffers with new ones, either turning a sparse entry into a real one,
+    /// or replacing an existing entry. You can use these buffers with the
+    /// [`ReadFixed`](crate::opcode::ReadFixed) and [`WriteFixed`](crate::opcode::WriteFixed)
+    /// operations.
+    ///
+    /// # Safety
+    ///
+    /// Developers must ensure that the `iov_base` and `iov_len` values are valid and will
+    /// be valid until buffers are unregistered or the ring destroyed, otherwise undefined
+    /// behaviour may occur.
+    pub unsafe fn register_buffers_update(
+        &self,
+        offset: u32,
+        bufs: &[libc::iovec],
+        tags: Option<&[u64]>,
+    ) -> io::Result<usize> {
+        if tags.is_some_and(|tags| tags.len() != bufs.len()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "number of tags different than number of bufs",
+            ));
+        }
+
+        let ru = sys::io_uring_rsrc_update2 {
+            offset,
+            resv: 0,
+            data: bufs.as_ptr() as _,
+            tags: tags.map(|tags| tags.as_ptr() as _).unwrap_or(0),
+            nr: bufs.len() as _,
+            resv2: 0,
+        };
+        let ret = execute(
+            self.fd.as_raw_fd(),
+            sys::IORING_REGISTER_BUFFERS_UPDATE,
+            cast_ptr::<sys::io_uring_rsrc_update2>(&ru).cast(),
+            mem::size_of::<sys::io_uring_rsrc_update2>() as _,
+        )?;
+        Ok(ret as _)
+    }
+
     /// Registers an empty file table of nr_files number of file descriptors. The sparse variant is
     /// available in kernels 5.19 and later.
     ///
