@@ -9,13 +9,13 @@ use std::os::unix::io::RawFd;
 use crate::squeue::Entry;
 use crate::squeue::Entry128;
 use crate::sys;
-use crate::types::{self, sealed};
+use crate::types::{self, sealed, Target};
 
 macro_rules! assign_fd {
     ( $sqe:ident . fd = $opfd:expr ) => {
         match $opfd {
-            sealed::Target::Fd(fd) => $sqe.fd = fd,
-            sealed::Target::Fixed(idx) => {
+            Target::Fd(fd) => $sqe.fd = fd,
+            Target::Fixed(idx) => {
                 $sqe.fd = idx as _;
                 $sqe.flags |= crate::squeue::Flags::FIXED_FILE.bits();
             }
@@ -25,7 +25,7 @@ macro_rules! assign_fd {
 
 macro_rules! opcode {
     (@type impl sealed::UseFixed ) => {
-        sealed::Target
+        Target
     };
     (@type impl sealed::UseFd ) => {
         RawFd
@@ -784,8 +784,8 @@ opcode! {
         let mut sqe = sqe_zeroed();
         sqe.opcode = Self::CODE;
         match fd {
-            sealed::Target::Fd(fd) => sqe.fd = fd,
-            sealed::Target::Fixed(idx) => {
+            Target::Fd(fd) => sqe.fd = fd,
+            Target::Fixed(idx) => {
                 sqe.fd = 0;
                 sqe.__bindgen_anon_5.file_index = idx + 1;
             }
@@ -1179,8 +1179,8 @@ opcode! {
         sqe.__bindgen_anon_1.off = off_out as _;
 
         sqe.__bindgen_anon_5.splice_fd_in = match fd_in {
-            sealed::Target::Fd(fd) => fd,
-            sealed::Target::Fixed(idx) => {
+            Target::Fd(fd) => fd,
+            Target::Fixed(idx) => {
                 flags |= sys::SPLICE_F_FD_IN_FIXED;
                 idx as _
             }
@@ -1267,8 +1267,8 @@ opcode! {
         sqe.len = len;
 
         sqe.__bindgen_anon_5.splice_fd_in = match fd_in {
-            sealed::Target::Fd(fd) => fd,
-            sealed::Target::Fixed(idx) => {
+            Target::Fd(fd) => fd,
+            Target::Fixed(idx) => {
                 flags |= sys::SPLICE_F_FD_IN_FIXED;
                 idx as _
             }

@@ -1,14 +1,14 @@
 //! Common Linux types not provided by libc.
 
-pub(crate) mod sealed {
-    use super::{Fd, Fixed};
-    use std::os::unix::io::RawFd;
+#[derive(Copy, Clone, Debug)]
+pub enum Target {
+    Fd(RawFd),
+    Fixed(u32),
+}
 
-    #[derive(Debug)]
-    pub enum Target {
-        Fd(RawFd),
-        Fixed(u32),
-    }
+pub(crate) mod sealed {
+    use super::{Fd, Fixed, Target};
+    use std::os::unix::io::RawFd;
 
     pub trait UseFd: Sized {
         fn into(self) -> RawFd;
@@ -36,6 +36,12 @@ pub(crate) mod sealed {
         #[inline]
         fn into(self) -> Target {
             Target::Fixed(self.0)
+        }
+    }
+
+    impl UseFixed for Target {
+        fn into(self) -> Target {
+            self
         }
     }
 }
@@ -557,7 +563,7 @@ impl<'buf> RecvMsgOut<'buf> {
 pub struct CancelBuilder {
     pub(crate) flags: AsyncCancelFlags,
     pub(crate) user_data: Option<u64>,
-    pub(crate) fd: Option<sealed::Target>,
+    pub(crate) fd: Option<Target>,
 }
 
 impl CancelBuilder {
@@ -598,7 +604,7 @@ impl CancelBuilder {
     pub fn fd(fd: impl sealed::UseFixed) -> Self {
         let mut flags = AsyncCancelFlags::FD;
         let target = fd.into();
-        if matches!(target, sealed::Target::Fixed(_)) {
+        if matches!(target, Target::Fixed(_)) {
             flags.insert(AsyncCancelFlags::FD_FIXED);
         }
         Self {
@@ -623,8 +629,8 @@ impl CancelBuilder {
         self.fd
             .as_ref()
             .map(|target| match *target {
-                sealed::Target::Fd(fd) => fd,
-                sealed::Target::Fixed(idx) => idx as i32,
+                Target::Fd(fd) => fd,
+                Target::Fixed(idx) => idx as i32,
             })
             .unwrap_or(-1)
     }
@@ -666,7 +672,7 @@ impl FutexWaitV {
 mod tests {
     use std::time::Duration;
 
-    use crate::types::sealed::Target;
+    use crate::types::Target;
 
     use super::*;
 
