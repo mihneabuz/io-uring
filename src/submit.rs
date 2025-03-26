@@ -357,6 +357,21 @@ impl<'a> Submitter<'a> {
         Ok(ret as _)
     }
 
+    pub fn register_file_alloc_range(&self, offset: u32, len: u32) -> io::Result<usize> {
+        let fu = sys::io_uring_file_index_range {
+            off: offset,
+            len,
+            resv: 0,
+        };
+        let ret = execute(
+            self.fd.as_raw_fd(),
+            sys::IORING_REGISTER_FILE_ALLOC_RANGE,
+            cast_ptr::<sys::io_uring_file_index_range>(&fu).cast(),
+            0,
+        )?;
+        Ok(ret as _)
+    }
+
     /// Register an eventfd created by [`eventfd`](libc::eventfd) with the io_uring instance.
     pub fn register_eventfd(&self, eventfd: RawFd) -> io::Result<()> {
         execute(
