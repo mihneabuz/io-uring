@@ -802,7 +802,7 @@ opcode! {
         fds: { *const RawFd },
         len: { u32 },
         ;;
-        offset: i32 = 0
+        offset: Option<i32> = None
     }
 
     pub const CODE = sys::IORING_OP_FILES_UPDATE;
@@ -815,7 +815,7 @@ opcode! {
         sqe.fd = -1;
         sqe.__bindgen_anon_2.addr = fds as _;
         sqe.len = len;
-        sqe.__bindgen_anon_1.off = offset as _;
+        sqe.__bindgen_anon_1.off = offset.unwrap_or(sys::IORING_FILE_INDEX_ALLOC) as _;
         Entry(sqe)
     }
 }
