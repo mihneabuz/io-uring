@@ -1749,6 +1749,40 @@ opcode! {
     }
 }
 
+opcode! {
+    pub struct ReadMulti {
+        fd: { impl sealed::UseFixed },
+        buf_group: { u16 },
+        ;;
+        offset: u64 = 0,
+        ioprio: u16 = 0,
+        rw_flags: types::RwFlags = 0
+    }
+
+    pub const CODE = sys::IORING_OP_READ_MULTISHOT;
+
+    pub fn build(self) -> Entry {
+        let ReadMulti {
+            fd,
+            offset,
+            ioprio, rw_flags,
+            buf_group
+        } = self;
+
+        let mut sqe = sqe_zeroed();
+        sqe.opcode = Self::CODE;
+        assign_fd!(sqe.fd = fd);
+        sqe.ioprio = ioprio;
+        sqe.__bindgen_anon_2.addr = 0;
+        sqe.len = 0;
+        sqe.__bindgen_anon_1.off = offset;
+        sqe.__bindgen_anon_3.rw_flags = rw_flags;
+        sqe.__bindgen_anon_4.buf_group = buf_group;
+        sqe.flags |= crate::squeue::Flags::BUFFER_SELECT.bits();
+        Entry(sqe)
+    }
+}
+
 // === 6.7 ===
 
 opcode! {
